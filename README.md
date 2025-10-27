@@ -1,83 +1,146 @@
-# Blue/Green Deployment with Nginx
+Blue-Green Deployment with Nginx and Docker Compose
 
-This project implements a Blue/Green deployment strategy for Node.js applications using Nginx as a load balancer with automatic failover.
+This project demonstrates a zero-downtime Blue/Green deployment strategy using pre-built Node.js container images running behind Nginx. The setup automatically fails over from the active (Blue) service to the backup (Green) instance when a failure is detected, ensuring uninterrupted service.
 
-## Architecture
+Overview
 
-- **Nginx**: Reverse proxy and load balancer (port 8080)
-- **Blue App**: Primary application instance (port 8081)
-- **Green App**: Backup application instance (port 8082)
+The stack consists of:
 
-## Features
+Nginx – Acts as a reverse proxy and load balancer, managing routing and automatic failover between Blue and Green.
 
-- Automatic failover from Blue to Green on failure
-- Zero downtime during failover
-- Health-based routing
-- Header forwarding for pool identification
+Blue Node.js Service – The active service container.
 
-## Prerequisites
+Green Node.js Service – The backup service container.
 
-- Docker
-- Docker Compose
+Nginx automatically routes traffic to the backup (Green) instance if the primary (Blue) service fails due to timeout or a 5xx error. All health checks, retries, and upstream headers are preserved.
 
-## Setup and Run
+Features
 
-1. Clone this repository
-2. Edit my .env file
-3. Run the application:
-```bash
-docker-compose up --build
-```
+-Blue/Green deployment model for zero downtime.
 
-## Testing
+-Automatic failover handled by Nginx.
 
-### Normal Operation
-```bash
-curl http://localhost:8080/version
-```
+-Retries on timeout and HTTP 5xx errors.
 
-Expected: 200 OK with `X-App-Pool: blue` header
+-Tight failover timeouts (2s–4s) for quick recovery.
 
-### Test Failover
-1. Trigger chaos on Blue:
-```bash
-curl -X POST http://localhost:8081/chaos/start?mode=error
-```
+-Full header preservation (X-App-Pool, X-Release-Id).
 
-2. Make requests through Nginx:
-```bash
-curl http://localhost:8080/version
-```
+-Parameterized Docker Compose configuration controlled by a .env file.
 
-Expected: 200 OK with `X-App-Pool: green` header
+-Supports CI-based automated verification and health testing.
 
-3. Stop chaos:
-```bash
-curl -X POST http://localhost:8081/chaos/stop
-```
+Endpoints:
+Service	Description	URL
+Nginx Gateway	Public entrypoint	http://localhost:8080
+Blue App	Direct access for chaos testing	http://localhost:8081
+Green App	Direct access for chaos testing	http://localhost:8082i
 
-## Configuration
 
-All configuration is done via the `.env` file:
+Application Endpoints:
 
-- `BLUE_IMAGE`: Docker image for Blue instance
-- `GREEN_IMAGE`: Docker image for Green instance
-- `ACTIVE_POOL`: Active pool (blue or green)
-- `RELEASE_ID_BLUE`: Release identifier for Blue
-- `RELEASE_ID_GREEN`: Release identifier for Green
-- `PORT`: Application port (default 8080)
+-GET /version – Returns the app’s pool (blue or green) and release ID in headers.
 
-## This is how it will work
+-GET /healthz – Reports service health.
 
-1. All traffic initially goes to Blue (primary)
-2. Nginx monitors Blue with health checks
-3. On Blue failure (timeout or 5xx), Nginx automatically retries to Green
-4. Client receives successful response without knowing about the failure
-5. After 30 seconds, Nginx tries Blue again and like that like that
+-POST /chaos/start – Simulates downtime (HTTP 500 or timeout).
 
-## Failover Configuration
+-POST /chaos/stop – Stops simulated downtime.Application Endpoints
 
-- **Timeout**: 3 seconds
-- **Max Fails**: 1 attempt
-- **Fail Timeout**: 30 seconds
-- **Retry Policy**: error, timeout, http_500, http_502, http_503, http_504
+-GET /version – Returns the app’s pool (blue or green) and release ID in headers.
+
+-GET /healthz – Reports service health.
+
+-POST /chaos/start – Simulates downtime (HTTP 500 or timeout).
+
+-POST /chaos/stop – Stops simulated downtime.
+
+
+
+Environment Variables;
+
+All configuration is managed on a .env.example file:
+
+Variable	Description
+-BLUE_IMAGE	Docker image reference for the Blue service
+-GREEN_IMAGE	Docker image reference for the Green service
+-ACTIVE_POOL	Defines the active pool (blue or green)
+-RELEASE_ID_BLUE	Release ID returned by Blue instance
+-RELEASE_ID_GREEN	Release ID returned by Green instance
+-PORT	Internal port exposed by the Node.js containers (default: 8081)
+
+
+
+
+
+Setup Instructions:
+
+1. Clone the repository
+git https://github.com/EdidiongAkpan/blue-green-deployment.git
+cd blue-green-deployment/
+
+2. Copy and configure environment variables
+
+cp .env.example .env
+
+Edit .env to match your desired configuration and container images.
+3. Start the services
+
+Run "docker compose up -d"
+
+4. Verify deployment
+
+Check that the active pool responds through Nginx:
+
+curl -i http://localhost:8080/version
+
+Expected headers:
+
+X-App-Pool: blue
+X-Release-Id: <release_id_blue>
+
+
+Testing Failover:
+
+1. Simulate a failure on Blue:
+curl -X POST "http://localhost:8081/chaos/start?mode=error"
+
+2. Recheck Nginx
+curl -i http://localhost:8080/version
+
+3. Stop the simulated failure:
+curl -X POST "http://localhost:8081/chaos/stop"
+
+
+Stopping Services:
+Run Docker compose down.
+
+
+
+THANKS FOR READING!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
